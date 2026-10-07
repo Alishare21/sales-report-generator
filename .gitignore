@@ -1,0 +1,25 @@
+.venv/
+__pycache__/
+node_modules/
+tmp/
+outputs/
+audits/
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Local integrations, private knowledge and dataset-specific audit history.
+AIS-OS/
+llm-wiki/
+skills/llm-wiki/
+skill_improvements.md
+scripts/audit_business_sales.py
+scripts/audit_business_sales_excel.ps1
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.DS_Store
+Thumbs.db
