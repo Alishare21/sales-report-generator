@@ -99,3 +99,19 @@ def run_uploaded_report(
             verification = out / "verification.json"
             result["verification"] = json.loads(verification.read_text(encoding="utf-8")) if verification.exists() else None
         return result
+
+
+def run_uploaded_report_with_auto_plan(
+    filename: str,
+    content: bytes,
+    output_format: str,
+    config_text: str = "{}",
+) -> dict:
+    """Inspect automatically, then build only when the capability check has no blockers."""
+    planned = run_uploaded_report(filename, content, output_format, config_text, plan_only=True)
+    if not planned.get("ok") or "blockers: 0" not in planned.get("stdout", ""):
+        return {"ok": False, "blocked": True, "plan_result": planned,
+                "stderr": planned.get("stderr") or "The analysis plan has unresolved decisions."}
+    generated = run_uploaded_report(filename, content, output_format, config_text, plan_only=False)
+    generated["auto_plan"] = planned
+    return generated

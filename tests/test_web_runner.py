@@ -3,7 +3,7 @@ import csv
 import io
 import json
 
-from src.web_runner import run_uploaded_report
+from src.web_runner import run_uploaded_report, run_uploaded_report_with_auto_plan
 
 
 class WebRunnerTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class WebRunnerTests(unittest.TestCase):
         self.assertIsNotNone(result["audit_markdown"])
         self.assertTrue(any("order_date" in c["column"] for c in result["profile"]["profile"]["columns"]))
 
-    def test_full_run_returns_both_downloadable_exports_and_audit(self):
+    def test_generate_without_manual_inspection_auto_checks_and_returns_exports(self):
         buffer = io.StringIO(newline="")
         writer = csv.writer(buffer)
         writer.writerow(["order_date", "product", "quantity", "revenue", "promo", "store"])
@@ -47,8 +47,10 @@ class WebRunnerTests(unittest.TestCase):
             "units": {"quantity": "units"},
             "assumptions": ["Each row is one observed sales record."],
         }
-        result = run_uploaded_report("integration.csv", buffer.getvalue().encode(), "both", json.dumps(config), plan_only=False)
+        result = run_uploaded_report_with_auto_plan("integration.csv", buffer.getvalue().encode(), "both", json.dumps(config))
         self.assertTrue(result["ok"], result["stderr"])
+        self.assertIn("blockers: 0", result["auto_plan"]["stdout"])
+        self.assertIn("## Capability check", result["auto_plan"]["plan"])
         self.assertEqual(set(result["exports"]), {"pdf", "xlsx"})
         self.assertTrue(result["exports"]["pdf"].startswith(b"%PDF"))
         self.assertTrue(result["exports"]["xlsx"].startswith(b"PK"))

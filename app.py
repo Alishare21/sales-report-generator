@@ -7,7 +7,7 @@ import json
 import pandas as pd
 import streamlit as st
 
-from src.web_runner import MAX_UPLOAD_BYTES, SUPPORTED_SUFFIXES, run_uploaded_report
+from src.web_runner import MAX_UPLOAD_BYTES, SUPPORTED_SUFFIXES, run_uploaded_report, run_uploaded_report_with_auto_plan
 
 
 st.set_page_config(page_title="Business Findings Report", page_icon="📊", layout="wide")
@@ -63,8 +63,8 @@ with right:
   "assumptions": ["Each row represents one sales line."]
 }''', language="json")
 
-st.markdown("#### 3 · Inspect first, then build")
-st.caption("The plan profiles the actual columns and lists supported and skipped analyses. Review it before asking for report exports.")
+st.markdown("#### 3 · Review first or generate automatically")
+st.caption("You can inspect the capability-based plan first, or Generate report will run that check automatically and build when no decisions are needed.")
 file_bytes = uploaded.getvalue() if uploaded else None
 file_hash = hashlib.sha256(file_bytes).hexdigest() if file_bytes is not None else None
 config_hash = hashlib.sha256(config_text.encode("utf-8")).hexdigest()
@@ -111,20 +111,33 @@ if saved_plan and saved_plan.get("key") == plan_key:
     if planned.get("audit_markdown"):
         st.download_button("Download this plan's audit", planned["audit_markdown"], file_name="business-findings-plan-audit.md", mime="text/markdown")
     if "blockers: 0" not in planned.get("stdout", ""):
-        st.warning("The plan reports a decision or mapping to resolve. Update the optional JSON config, then inspect the plan again before generating.")
+        st.warning("The plan reports a decision or mapping to resolve. Update the optional JSON config, inspect the plan, then generate again.")
 
 if build_clicked and uploaded and file_bytes is not None:
-    if not saved_plan or saved_plan.get("key") != plan_key:
-        st.warning("Inspect the dataset and review its plan first. If you changed the file, format, or config, rerun the plan.")
-    elif "blockers: 0" not in saved_plan["result"].get("stdout", ""):
-        st.error("Resolve the plan's decision items before building. Edit the config and rerun the plan.")
-    else:
-        try:
+    try:
+        if not saved_plan or saved_plan.get("key") != plan_key:
+            with st.spinner("Checking the dataset and building the report if the plan is clear…"):
+                generated = run_uploaded_report_with_auto_plan(uploaded.name, file_bytes, format_value, config_text)
+            planned = generated.get("auto_plan") or generated.get("plan_result")
+            if planned:
+                st.session_state["business_findings_plan"] = {"key": plan_key, "result": planned}
+            if generated.get("ok"):
+                st.session_state["business_findings_report"] = {"key": plan_key, "result": generated}
+            else:
+                st.session_state.pop("business_findings_report", None)
+            st.rerun()
+        elif not saved_plan["result"].get("ok"):
+            st.error("The dataset check failed. Review the processing notes, correct the file or config, then try again.")
+            if saved_plan["result"].get("stderr"):
+                st.code(saved_plan["result"]["stderr"])
+        elif "blockers: 0" not in saved_plan["result"].get("stdout", ""):
+            st.error("Resolve the plan's decision items. Update the config, inspect the plan again, then generate.")
+        else:
             with st.spinner("Building the report, charts, and audit evidence…"):
                 generated = run_uploaded_report(uploaded.name, file_bytes, format_value, config_text, plan_only=False)
             st.session_state["business_findings_report"] = {"key": plan_key, "result": generated}
-        except Exception as exc:
-            st.error(f"Report build failed: {exc}")
+    except Exception as exc:
+        st.error(f"Report build failed: {exc}")
 
 saved_report = st.session_state.get("business_findings_report")
 if saved_report and saved_report.get("key") == plan_key:
