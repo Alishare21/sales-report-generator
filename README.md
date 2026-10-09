@@ -108,6 +108,23 @@ Use `--format xlsx` for Excel or `--format both` for both exports. Use
 Reports go to `outputs/<dataset>/`, charts to `outputs/charts/<dataset>/`, and a
 cleaned copy to `data/processed/`.
 
+## Hosted web app
+
+The Streamlit interface runs the same Python report pipeline. To deploy this
+repository on Render, create a Web Service from the public GitHub repository and
+use the included `render.yaml` settings. The app supports CSV, TSV, XLSX and
+JSON uploads, a reviewable analysis plan, optional JSON field mappings, and PDF,
+Excel or combined downloads. Uploads are processed in a temporary working copy;
+the app does not write them to a persistent application folder or database.
+Files are still sent to the hosting provider for processing, so do not upload
+confidential data unless you are authorized to use that service. The free Render
+instance may sleep while idle and can take time to wake; it is intended for
+classroom demonstration and evaluation, not production workloads.
+
+The hosted interface limits uploads to 25 MB. Ambiguous data still requires a
+config clarification, and the automated audit keeps visual review marked pending
+until a person inspects the downloaded exports.
+
 ## Example report
 
 Create the seeded **fictional demonstration dataset** and its config:
@@ -167,6 +184,9 @@ src/analysis.py                 Cleaning, capability checks and analysis
 src/charts.py                   Chart generation
 src/build_report.py             PDF and Excel exports
 src/audit.py                    Per run audit records
+app.py                          Streamlit upload and report interface
+src/web_runner.py               Isolated temporary report-job runner
+render.yaml                     Render web-service configuration
 tests/                          Regression tests
 scripts/make_example.py         Fictional sample data generator
 ```
